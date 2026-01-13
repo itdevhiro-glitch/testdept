@@ -24,7 +24,7 @@ let currentSort = { key: 'name', asc: true };
 let compareChart = null;
 let jobChartInstance = null;
 let statusChartInstance = null;
-let globalCampsData = []; // NEW FOR WAR ROOM
+let globalCampsData = []; 
 
 onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -56,9 +56,12 @@ const JOB_GROUPS = {
     CRAFT:  ['gunmaker', 'armorer', 'upholster']
 };
 
-function calculateCombatRating(stats) {
+// --- LOGIKA RATING BARU (UPDATED) ---
+// Menggunakan bobot prioritas ATK/DEF dan Job Multiplier
+function calculateCombatRating(stats, jobName = 'Unknown') {
     if (!stats) return 0;
-    
+
+    // 1. Ambil value stats
     const atk = parseInt(stats.atk) || 0;
     const def = parseInt(stats.def) || 0;
     const cr  = parseInt(stats.crit_rate) || 0;
@@ -66,14 +69,45 @@ function calculateCombatRating(stats) {
     const dr  = parseInt(stats.dmg_red) || 0;
     const ci  = parseInt(stats.crit_res) || 0;
 
-    let score = (atk * 1) + 
-                (def * 2.5) + 
-                (cr * 20) + 
-                (cd * 5) + 
-                (dr * 25) + 
-                (ci * 10);
+    // 2. Base Weight (Bobot Dasar Global)
+    // Attack & Armor = Core Stat LifeAfter (Bobot Tinggi)
+    let rawScore = 
+        (atk * 40) +      
+        (def * 45) +      
+        (cr * 10) +       
+        (cd * 8) +        
+        (dr * 15) +       
+        (ci * 10);        
+
+    // 3. Job Synergy Multiplier
+    const job = jobName.toLowerCase();
     
-    return Math.floor(score); 
+    // WARRIOR / MELEE (Tanky -> Butuh Armor & DMG Red)
+    if (job.includes('warrior') || job.includes('ark knight')) {
+        rawScore += (def * 15);   
+        rawScore += (dr * 10);    
+        rawScore += (atk * 5);    
+    }
+    // RIFLEMAN / SNIPER (Pure DPS -> Butuh ATK & Crit)
+    else if (job.includes('rifleman') || job.includes('sniper')) {
+        rawScore += (atk * 20);   
+        rawScore += (cr * 5);     
+        rawScore += (cd * 5);     
+    }
+    // VIRUS / EXORCIST (Support DPS -> Balance)
+    else if (job.includes('virus') || job.includes('exorcist') || job.includes('spore')) {
+        rawScore += (atk * 15);
+        rawScore += (def * 10);   
+    }
+    // GATHER / CRAFT (Non-Combat -> Penalty)
+    else if (
+        ['logger', 'hempicker', 'miner', 'gunmaker', 'armorer', 'upholster']
+        .some(j => job.includes(j))
+    ) {
+        rawScore = rawScore * 0.8; 
+    }
+
+    return Math.floor(rawScore); 
 }
 
 function initRealtimeData() {
@@ -164,7 +198,8 @@ window.openDetailWrapper = (id) => {
     document.getElementById('in-dmg-red').value = s.dmg_red;
     document.getElementById('in-crit-res').value = s.crit_res;
 
-    const score = calculateCombatRating(s);
+    // UPDATE: Pass job to calculator
+    const score = calculateCombatRating(s, p.job);
     document.getElementById('d-score').innerText = score.toLocaleString(); 
 
     document.getElementById('modal-detail').style.display = 'flex';
@@ -258,7 +293,7 @@ window.toggleSort = (key) => {
     renderList();
 };
 
-// --- GLOBAL WAR ROOM LOGIC (NEW) ---
+// --- GLOBAL WAR ROOM LOGIC ---
 async function fetchGlobalWarData() {
     const btn = document.getElementById('btn-scan-global');
     const load = document.getElementById('war-loading');
@@ -269,7 +304,6 @@ async function fetchGlobalWarData() {
     content.style.display = 'none';
 
     try {
-        // Query COLLECTION GROUP: Gets all 'units' collections from all users
         const q = query(collectionGroup(db, 'units'));
         const snapshot = await getDocs(q);
         
@@ -278,11 +312,8 @@ async function fetchGlobalWarData() {
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
             
-            // FILTER: Skip Reserve Units
             if (data.team === 'res') return;
 
-            // Identify Camp ID (Parent User ID)
-            // Path: users/{uid}/units/{unitId} -> index path[1] is UID
             const pathSegments = docSnap.ref.path.split('/');
             const campId = pathSegments[1];
 
@@ -300,8 +331,8 @@ async function fetchGlobalWarData() {
                 };
             }
 
-            // Sum Stats
-            const power = calculateCombatRating(data.stats);
+            // UPDATE: Pass job to calculator
+            const power = calculateCombatRating(data.stats, data.job);
             campsMap[campId].unitCount++;
             campsMap[campId].totalPower += power;
             
@@ -311,7 +342,6 @@ async function fetchGlobalWarData() {
             campsMap[campId].totalCrit += parseInt(s.crit_rate || 0); 
             campsMap[campId].totalDr += parseInt(s.dmg_red || 0);
 
-            // Count Classes
             const info = getJobInfo(data.job);
             if(info.cat === 'WEAPON') campsMap[campId].classes.WPN++;
             else if(info.cat === 'BIO-OPS') campsMap[campId].classes.BIO++;
@@ -319,7 +349,6 @@ async function fetchGlobalWarData() {
             else if(info.cat === 'CRAFT') campsMap[campId].classes.CRAFT++;
         });
 
-        // Convert Map to Array & Sort by Power
         globalCampsData = Object.values(campsMap).sort((a, b) => b.totalPower - a.totalPower);
         
         renderGlobalLeaderboard();
@@ -473,7 +502,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('btn-copy').addEventListener('click', copyDiscord);
 
-    // New Listener for Global Scan
     document.getElementById('btn-scan-global').addEventListener('click', fetchGlobalWarData);
 
     const fInputs = ['f-name', 'f-team', 'f-class', 'f-job'];
@@ -510,14 +538,14 @@ function renderAll() {
 
 // --- DASHBOARD RENDERER ---
 function renderDashboard() {
-    // Stats Calculation
     const total = players.length;
     const onCamp = players.filter(p => p.status === 'ON_CAMP' || !p.status).length;
     const merc = players.filter(p => p.status === 'MERCENARY').length;
     
     let topUnit = { name: 'N/A', val: 0 };
     players.forEach(p => {
-        const sc = calculateCombatRating(p.stats);
+        // UPDATE: Pass job to calculator
+        const sc = calculateCombatRating(p.stats, p.job);
         if(sc > topUnit.val) topUnit = { name: p.name, val: sc };
     });
 
@@ -600,7 +628,6 @@ function renderCharts(jobs, statuses) {
         }
     });
 }
-// -----------------------------
 
 function getJobInfo(job) {
     const j = job.toLowerCase();
@@ -650,27 +677,26 @@ function initBoardLanes() {
 
 function renderBoard() {
     // 1. CALCULATE HEADER STATS FIRST
-    // Filter out Reserves
     const activeUnits = players.filter(p => p.team !== 'res');
     
     let totalCP = 0;
     let totalAtk = 0;
     let totalDef = 0;
 
-    // Sort by CP Descending
+    // Sort by CP Descending (UPDATED: Pass job)
     activeUnits.sort((a, b) => {
-        const sA = calculateCombatRating(a.stats);
-        const sB = calculateCombatRating(b.stats);
+        const sA = calculateCombatRating(a.stats, a.job);
+        const sB = calculateCombatRating(b.stats, b.job);
         return sB - sA;
     });
 
     activeUnits.forEach(p => {
-        totalCP += calculateCombatRating(p.stats);
+        // UPDATE: Pass job to calculator
+        totalCP += calculateCombatRating(p.stats, p.job);
         totalAtk += parseInt(p.stats?.atk || 0);
         totalDef += parseInt(p.stats?.def || 0);
     });
 
-    // Render Stats Header
     document.getElementById('board-total-cp').innerText = totalCP.toLocaleString();
     document.getElementById('board-total-atk').innerText = totalAtk.toLocaleString();
     document.getElementById('board-total-def').innerText = totalDef.toLocaleString();
@@ -685,7 +711,8 @@ function renderBoard() {
     if(activeUnits.length > 0) {
         const top3 = activeUnits.slice(0, 3);
         top3.forEach((p, idx) => {
-            const cp = calculateCombatRating(p.stats);
+            // UPDATE: Pass job to calculator
+            const cp = calculateCombatRating(p.stats, p.job);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : 'rank-3';
             const icon = idx === 0 ? '<i class="fa-solid fa-crown"></i>' : (idx + 1);
         
@@ -714,7 +741,8 @@ function renderBoard() {
         const teamPlayers = players
             .filter(p => p.team === t.id)
             .sort((a, b) => {
-                return calculateCombatRating(b.stats) - calculateCombatRating(a.stats);
+                // UPDATE: Pass job to calculator
+                return calculateCombatRating(b.stats, b.job) - calculateCombatRating(a.stats, a.job);
             });
 
         document.getElementById(`cnt-${t.id}`).innerText = teamPlayers.length;
@@ -727,7 +755,8 @@ function renderBoard() {
 
         teamPlayers.forEach(p => {
             const info = getJobInfo(p.job);
-            const cp = calculateCombatRating(p.stats); 
+            // UPDATE: Pass job to calculator
+            const cp = calculateCombatRating(p.stats, p.job); 
             const stClass = getStatusClass(p.status);
 
             const card = document.createElement('div');
@@ -787,8 +816,9 @@ function renderList() {
                 valB = b.job.toLowerCase();
                 break;
             case 'rating':
-                valA = calculateCombatRating(a.stats);
-                valB = calculateCombatRating(b.stats);
+                // UPDATE: Pass job to calculator
+                valA = calculateCombatRating(a.stats, a.job);
+                valB = calculateCombatRating(b.stats, b.job);
                 break;
             case 'team':
                 valA = TEAMS.findIndex(t => t.id === a.team);
@@ -824,7 +854,8 @@ function renderList() {
 
     processedData.forEach(p => {
         const info = getJobInfo(p.job);
-        const cp = calculateCombatRating(p.stats);
+        // UPDATE: Pass job to calculator
+        const cp = calculateCombatRating(p.stats, p.job);
 
         let teamOpts = '';
         TEAMS.forEach(t => {
@@ -903,7 +934,7 @@ function copyDiscord() {
 }
 
 function setupViewSwitcher() {
-    const views = ['dash', 'board', 'list', 'map', 'compare', 'edit', 'war']; // ADDED 'war'
+    const views = ['dash', 'board', 'list', 'map', 'compare', 'edit', 'war'];
     views.forEach(v => {
         document.getElementById(`btn-view-${v}`).addEventListener('click', (e) => {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -918,7 +949,7 @@ function setupViewSwitcher() {
                 'map': 'OPERATIONS MAP',
                 'compare': 'UNIT COMPARISON',
                 'edit': 'LIVE DATA TERMINAL',
-                'war': 'GLOBAL WAR ROOM' // NEW TITLE
+                'war': 'GLOBAL WAR ROOM'
             };
             document.getElementById('page-title').innerText = titles[v];
             if(v === 'map') resizeCanvas();
@@ -1004,7 +1035,8 @@ function renderUnitHeader(idx, p) {
     badge.innerText = p.job;
     badge.className = `card-badge ${inf.style}`;
     
-    const sc = calculateCombatRating(p.stats);
+    // UPDATE: Pass job to calculator
+    const sc = calculateCombatRating(p.stats, p.job);
     document.getElementById(`c-score-${idx}`).innerText = sc.toLocaleString();
 }
 
@@ -1281,14 +1313,10 @@ window.renderEditor = () => {
     const tbody = document.getElementById('sheet-body');
     tbody.innerHTML = '';
     
-    // Ambil value dari search bar
     const filterVal = document.getElementById('editor-search').value.toLowerCase();
-
-    // Sort by name biar rapi
     const sorted = [...players].sort((a,b) => a.name.localeCompare(b.name));
 
     sorted.forEach((p, index) => {
-        // Filter: Jika nama tidak mengandung kata kunci, skip baris ini
         if(filterVal && !p.name.toLowerCase().includes(filterVal)) return;
 
         const s = p.stats || {};
