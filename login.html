@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ELITE OPS // ACCESS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #030712;
+            --card-bg: rgba(17, 24, 39, 0.4);
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1; /* Indigo */
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --secondary: #a855f7; /* Purple */
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- 1. AMBIENT BACKGROUND ANIMATION --- */
+        .ambient-light {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100vw; height: 100vh;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: floatBlob 10s infinite alternate ease-in-out;
+        }
+
+        .blob:nth-child(1) {
+            top: 10%; left: 20%; width: 400px; height: 400px;
+            background: var(--primary);
+            animation-delay: 0s;
+        }
+        .blob:nth-child(2) {
+            bottom: 20%; right: 10%; width: 300px; height: 300px;
+            background: var(--secondary);
+            animation-delay: -5s;
+        }
+
+        @keyframes floatBlob {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -50px) scale(1.1); }
+        }
+
+        /* --- 2. GLASS CARD --- */
+        .login-card {
+            position: relative;
+            z-index: 10;
+            width: 380px;
+            padding: 48px 40px;
+            background: var(--card-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            
+            /* Entry Animation */
+            opacity: 0;
+            transform: translateY(20px);
+            animation: cardEntrance 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes cardEntrance {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .icon-circle {
+            width: 64px; height: 64px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 24px;
+            color: #fff;
+            box-shadow: 0 0 20px var(--primary-glow);
+            animation: pulseIcon 3s infinite ease-in-out;
+        }
+
+        @keyframes pulseIcon {
+            0%, 100% { box-shadow: 0 0 15px var(--primary-glow); }
+            50% { box-shadow: 0 0 30px var(--primary-glow), 0 0 10px var(--secondary); }
+        }
+
+        .header h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 13px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* --- 3. INPUTS WITH ANIMATION --- */
+        .input-group {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 16px 0;
+            font-size: 16px;
+            color: #fff;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #334155;
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .input-group label {
+            position: absolute;
+            top: 16px;
+            left: 0;
+            font-size: 15px;
+            color: #64748b;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Focus State Animations */
+        .input-group input:focus,
+        .input-group input:valid {
+            border-bottom-color: var(--primary);
+        }
+
+        .input-group input:focus ~ label,
+        .input-group input:valid ~ label {
+            top: -8px;
+            font-size: 12px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Animated bottom line fill */
+        .input-highlight {
+            position: absolute;
+            bottom: 0; left: 0;
+            height: 1px; width: 0;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.4s ease;
+        }
+        .input-group input:focus ~ .input-highlight { width: 100%; }
+
+        /* --- 4. BUTTON WITH GRADIENT & HOVER --- */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: #fff;
+            color: #000;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        /* Subtle gradient background on hover */
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            z-index: -1;
+            transition: opacity 0.3s;
+            opacity: 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px var(--primary-glow);
+            color: #fff;
+        }
+
+        .btn:hover::before { opacity: 1; }
+        .btn:active { transform: translateY(0); }
+
+        .footer {
+            margin-top: 32px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .footer span {
+            color: #fff;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .footer span::after {
+            content: ''; position: absolute;
+            bottom: -2px; left: 0; width: 0; height: 1px;
+            background: var(--secondary);
+            transition: width 0.3s;
+        }
+        
+        .footer span:hover { color: var(--secondary); }
+        .footer span:hover::after { width: 100%; }
+
+        #error-msg {
+            font-size: 13px;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        /* Loading Spinner inside button */
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+            margin: 0 auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="ambient-light">
+        <div class="blob"></div>
+        <div class="blob"></div>
+    </div>
+
+    <div class="login-card">
+        <div class="header">
+            <div class="icon-circle">
+                <i class="fa-solid fa-layer-group"></i>
+            </div>
+            <h1>Welcome Back</h1>
+            <p>Enter your credentials to access Elite Ops</p>
+        </div>
+
+        <div id="error-msg"></div>
+
+        <form id="auth-form">
+            <div class="input-group">
+                <input type="email" id="email" required autocomplete="off">
+                <label>Email Address</label>
+                <div class="input-highlight"></div>
+            </div>
+            
+            <div class="input-group">
+                <input type="password" id="password" required>
+                <label>Password</label>
+                <div class="input-highlight"></div>
+            </div>
+
+            <button type="submit" class="btn" id="submit-btn">
+                <span id="btn-text">Sign In</span>
+                <div class="spinner" id="btn-loader"></div>
+            </button>
+        </form>
+
+        <div class="footer">
+            <p id="toggle-text">
+                Don't have an account? <span id="toggle-mode">Create Account</span>
+            </p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCWzttWHmPGxVINMksXgVkqjzP4jFHf0wE",
+            authDomain: "wartactic-8a8a1.firebaseapp.com",
+            projectId: "wartactic-8a8a1",
+            storageBucket: "wartactic-8a8a1.firebasestorage.app",
+            messagingSenderId: "409457288660",
+            appId: "1:409457288660:web:bafb9b3a475c1a31c56241",
+            measurementId: "G-M438315YTV"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Exit Animation
+                const card = document.querySelector('.login-card');
+                card.style.transform = 'translateY(-20px)';
+                card.style.opacity = '0';
+                card.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => { window.location.href = "index.html"; }, 600);
+            }
+        });
+
+        let isLogin = true;
+        const form = document.getElementById('auth-form');
+        const emailIn = document.getElementById('email');
+        const passIn = document.getElementById('password');
+        const btn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        const btnLoader = document.getElementById('btn-loader');
+        const toggle = document.getElementById('toggle-mode');
+        const toggleTextP = document.getElementById('toggle-text');
+        const errorMsg = document.getElementById('error-msg');
+
+        toggle.addEventListener('click', () => {
+            isLogin = !isLogin;
+            btnText.innerText = isLogin ? "Sign In" : "Create Account";
+            
+            // Update toggle text safely
+            const prefix = isLogin ? "Don't have an account? " : "Already have an account? ";
+            const actionText = isLogin ? "Create Account" : "Sign In";
+            
+            toggleTextP.innerHTML = `${prefix}<span id="toggle-mode">${actionText}</span>`;
+            
+            // Re-attach event listener since span was recreated
+            document.getElementById('toggle-mode').addEventListener('click', () => toggle.click());
+            
+            errorMsg.style.display = 'none';
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailIn.value;
+            const pass = passIn.value;
+
+            errorMsg.style.display = 'none';
+            btn.disabled = true;
+            btn.style.cursor = 'wait';
+            btnText.style.display = 'none';
+            btnLoader.style.display = 'block';
+
+            try {
+                if (isLogin) {
+                    await signInWithEmailAndPassword(auth, email, pass);
+                } else {
+                    await createUserWithEmailAndPassword(auth, email, pass);
+                }
+            } catch (error) {
+                errorMsg.innerText = error.message.replace('Firebase:', '').replace('Error', '');
+                errorMsg.style.display = 'block';
+                
+                btn.disabled = false;
+                btn.style.cursor = 'pointer';
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
